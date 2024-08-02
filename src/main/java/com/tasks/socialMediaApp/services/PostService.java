@@ -57,10 +57,6 @@ public class PostService {
 
     }
 
-    public void addImagesToAPost(Post post, List<Image> allImages){
-
-    // Todo
-    }
     public Optional<Post> findPost(int postId){
 
         return postRepository.findById(postId);
