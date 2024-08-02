@@ -1,7 +1,9 @@
 package com.tasks.socialMediaApp.responseModel;
 
 import com.tasks.socialMediaApp.model.Post;
+import org.springframework.stereotype.Component;
 
+@Component
 public class ResponseImage {
 
     int id;

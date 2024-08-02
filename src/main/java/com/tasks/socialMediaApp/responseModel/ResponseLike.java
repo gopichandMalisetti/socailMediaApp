@@ -1,12 +1,14 @@
 package com.tasks.socialMediaApp.responseModel;
 
 import com.tasks.socialMediaApp.model.User;
+import org.springframework.stereotype.Component;
 
 import java.util.Date;
 
+@Component
 public class ResponseLike {
 
-    Post post;
+    ResponsePost post;
     User user;
     Date likedTime;
 
@@ -17,7 +19,7 @@ public class ResponseLike {
         return likedTime;
     }
 
-    public Post getPost() {
+    public ResponsePost getPost() {
         return post;
     }
 
@@ -29,7 +31,7 @@ public class ResponseLike {
         this.likedTime = likedTime;
     }
 
-    public void setPost(Post post) {
+    public void setPost(ResponsePost post) {
         this.post = post;
     }
 

@@ -1,17 +1,18 @@
 package com.tasks.socialMediaApp.responseModel;
 
-import com.tasks.socialMediaApp.model.Image;
+import org.springframework.stereotype.Component;
 
 import java.util.List;
 
-public class Post {
+@Component
+public class ResponsePost {
 
     int id;
     String detials;
     int likesCount;
     List<ResponseImage> responseImages;
 
-    public Post() {
+    public ResponsePost() {
     }
 
     public String getDetials() {

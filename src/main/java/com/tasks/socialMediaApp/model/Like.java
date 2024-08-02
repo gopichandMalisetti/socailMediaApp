@@ -9,8 +9,6 @@ import java.util.Date;
 @Table(name = "likes")
 @IdClass(LikeId.class)
 public class Like implements Serializable {
-
-
     User user;
     Post post;
     Date likedTime;

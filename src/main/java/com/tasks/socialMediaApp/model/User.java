@@ -16,11 +16,6 @@ public class User implements Serializable {
     private String userName;
     private Profile profile;
     private RefreshToken refreshToken;
-    List<Follow> followingUsers = new ArrayList<>();
-    List<Follow> followedUsers = new ArrayList<>();
-    List<Post> posts = new ArrayList<>();
-    List<Comment> comments = new ArrayList<>();
-    List<Like> likes = new ArrayList<>();
 
     public User() {
     }
@@ -56,28 +51,6 @@ public class User implements Serializable {
         return userName;
     }
 
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    public List<Comment> getComments() {
-        return comments;
-    }
-
-    @OneToMany(mappedBy = "followedUser", cascade = CascadeType.ALL, orphanRemoval = true)
-    public List<Follow> getFollowedUsers() {
-        return followedUsers;
-    }
-
-    @OneToMany(mappedBy = "followingUser", cascade = CascadeType.ALL, orphanRemoval = true)
-    public List<Follow> getFollowingUsers() {
-        return followingUsers;
-    }
-
-    public void setComments(List<Comment> comments) {
-        this.comments = comments;
-    }
-
-    public void setPosts(List<Post> posts) {
-        this.posts = posts;
-    }
 
     public void setProfile(Profile profile) {
         this.profile = profile;
@@ -87,34 +60,12 @@ public class User implements Serializable {
         this.userName = userName;
     }
 
-    public void setFollowingUsers(List<Follow> followingUsers) {
-        this.followingUsers = followingUsers;
-    }
-
-    public void setFollowedUsers(List<Follow> followedUsers) {
-        this.followedUsers = followedUsers;
-    }
-
-    public void setLikes(List<Like> likes) {
-        this.likes = likes;
-    }
-
     public void setId(Integer id) {
         this.id = id;
     }
 
     public void setPassword(String password) {
         this.password = password;
-    }
-
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    public List<Like> getLikes() {
-        return likes;
-    }
-
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    public List<Post> getPosts() {
-        return posts;
     }
 
     public void setRefreshToken(RefreshToken refreshToken) {

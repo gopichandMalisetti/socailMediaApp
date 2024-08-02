@@ -3,11 +3,14 @@ package com.tasks.socialMediaApp.services;
 import com.tasks.socialMediaApp.model.Profile;
 import com.tasks.socialMediaApp.model.User;
 import com.tasks.socialMediaApp.repositories.UserRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 @Service
 public class ProfileService {
 
+    private static final Logger logger = LoggerFactory.getLogger(ProfileService.class);
     UserRepository userRepository;
 
     ProfileService(UserRepository userRepository){
@@ -16,11 +19,11 @@ public class ProfileService {
     public Profile editProfile(User user, Profile profile){
 
         try {
-            System.out.println("............." + profile.getPhno());
+            logger.debug("phno:" + profile.getPhno());
             user.setProfile(profile);
             userRepository.save(user);
         }catch (Exception e){
-            System.out.println(e.getMessage());
+            logger.error(e.getMessage());
             return null;
         }
 

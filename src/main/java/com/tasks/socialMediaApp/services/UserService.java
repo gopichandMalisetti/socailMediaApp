@@ -1,33 +1,60 @@
 package com.tasks.socialMediaApp.services;
 
+import com.tasks.socialMediaApp.jwt.JwtUtils;
 import com.tasks.socialMediaApp.model.Follow;
 import com.tasks.socialMediaApp.model.RefreshToken;
 import com.tasks.socialMediaApp.model.User;
 import com.tasks.socialMediaApp.repositories.UserRepository;
+import com.tasks.socialMediaApp.requestModel.LoginRequest;
+import com.tasks.socialMediaApp.responseModel.LoginResponse;
+import com.tasks.socialMediaApp.responseModel.ResponseUser;
+import com.tasks.socialMediaApp.responseModel.ResponseUserDetails;
+import jakarta.transaction.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Service
 public class UserService {
 
+    private static final Logger logger = LoggerFactory.getLogger(UserService.class);
     UserRepository userRepository;
     PasswordEncoder passwordEncoder;
+    JwtUtils jwtUtils;
+    AuthenticationManager authenticationManager;
+    FollowService followService;
+    PostService postService;
+    LikeService likeService;
+    CommentService commentService;
 
     @Value("${passwordRegex.regexp}")
     private String passwordRegex;
 
     @Autowired
-    UserService(UserRepository userRepository, PasswordEncoder passwordEncoder){
+    UserService(UserRepository userRepository, PasswordEncoder passwordEncoder,
+                   JwtUtils jwtUtils, AuthenticationManager authenticationManager,FollowService followService,
+                PostService postService,LikeService likeService,CommentService commentService){
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.jwtUtils = jwtUtils;
+        this.authenticationManager = authenticationManager;
+        this.followService = followService;
+        this.postService = postService;
+        this.likeService = likeService;
+        this.commentService = commentService;
     }
 
 //    Breaking down its components:
@@ -47,16 +74,17 @@ public class UserService {
 
     public boolean validatePassword(String password){
 
-        System.out.println(passwordRegex);
+        logger.error(passwordRegex);
 
-       Pattern pattern =  Pattern.compile(passwordRegex);
-       Matcher matcher =  pattern.matcher(password);
-        System.out.println(pattern.pattern());
-        System.out.println(password);
+        Pattern pattern =  Pattern.compile(passwordRegex);
+        Matcher matcher =  pattern.matcher(password);
+        logger.error(pattern.pattern());
+        logger.error(password);
         boolean matches =  matcher.matches();
-        System.out.println(matches);
+        logger.debug("matches " + matches);
         return matches;
     }
+
     public User userRegistration(User user){
 
         user.setPassword(passwordEncoder.encode(user.getPassword()));
@@ -64,24 +92,27 @@ public class UserService {
         try {
             savedUser = userRepository.save(user);
         }catch (Exception e){
-            System.out.println("EXCEPTION FOUND :");
-            System.out.println(e.getMessage());
+            logger.error(e.getMessage());
             return null;
         }
         return savedUser;
     }
 
-    public boolean deleteUser(int userId){
+    @Transactional
+    public boolean deleteUser(User user){
 
-        if(userRepository.findById(userId).isEmpty()){
+        if(!userRepository.findById(user.getId()).isPresent()){
             return false;
         }
 
         try {
-            userRepository.deleteById(userId);
+            postService.deletePostsOfAUser(user);
+            commentService.deleteCommentsOfAUser(user);
+            likeService.deleteLikesOfAUser(user);
+            followService.deleteFollowsByUser(user);
+            userRepository.deleteById(user.getId());
         }catch (Exception e){
-            System.out.println("EXCEPTION FOUND :");
-            System.out.println(e.getMessage());
+            logger.error(e.getMessage());
             return false;
         }
         return true;
@@ -96,30 +127,22 @@ public class UserService {
 
     List<User> findUsersIFollow(User user){
 
-        List<User> users = new ArrayList<>();
-
-        List<Follow> followedUsers =  user.getFollowedUsers();
-        for (Follow follow : followedUsers){
-            User followedUser = follow.getFollowingUser();
-            System.out.println(followedUser.getUserName());
-            users.add(followedUser);
-        }
+        List<User> users;
+        List<Follow> followedUsers =  followService.findFollowsByFollowedUser(user);
+        users = followedUsers.stream()
+                .map(Follow::getFollowingUser)
+                .collect(Collectors.toList());
 
         return users;
     }
 
     List<User> findAUserFollowers(User user){
 
-        List<User> users = new ArrayList<>();
+        List<Follow> followingUsers =  followService.findFollowsByFollowingUser(user);
+        return followingUsers.stream()
+                .map(Follow::getFollowedUser)
+                .collect(Collectors.toList());
 
-        List<Follow> followingUsers =  user.getFollowingUsers();
-        for (Follow follow : followingUsers){
-            User followingUser = follow.getFollowedUser();
-            System.out.println(followingUser.getUserName());
-            users.add(followingUser);
-        }
-
-        return users;
     }
 
     public List<User> searchUser(String userName){
@@ -136,19 +159,71 @@ public class UserService {
     public User findByRefreshToken(String refreshToken) {
         return userRepository.findByRefreshToken(refreshToken);
     }
+
+    public List<ResponseUser> buildResponseUserList(List<User> allUsers){
+
+        return allUsers.stream()
+                .map(user -> {
+                    ResponseUser responseUser = new ResponseUser();
+                    responseUser.setUserName(user.getUserName());
+                    responseUser.setId(user.getId());
+                    return responseUser;
+                })
+                .collect(Collectors.toList());
+    }
+
+    public List<ResponseUserDetails> buildResponseUserDetails(List<User> users) {
+
+        return users.stream()
+                .map(user -> {
+                    ResponseUserDetails responseUserDetails = new ResponseUserDetails();
+                    responseUserDetails.setUserName(user.getUserName());
+                    responseUserDetails.setBio(user.getProfile().getBio());
+                    responseUserDetails.setFullName(user.getProfile().getFullName());
+                    responseUserDetails.setPhotoUrl(user.getProfile().getPhotoUrl());
+                    return responseUserDetails;
+                })
+                .collect(Collectors.toList());
+    }
+
+    public LoginResponse buildLoginResponse(String jwtToken, String refreshToken, String userName){
+
+        return new LoginResponse(jwtToken,refreshToken,userName);
+    }
+
+    public LoginResponse validateUserLoginAndBuildLoginResponse(LoginRequest loginRequest){
+
+        Authentication authentication;
+        authentication = authenticationManager
+                .authenticate(new UsernamePasswordAuthenticationToken(loginRequest.getUserName(),loginRequest.getPassword()));
+
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+        String jwtToken = jwtUtils.generateTokenFromUsername(userDetails.getUsername());
+        String refreshToken = jwtUtils.generateRefreshTokenFromUserName(userDetails.getUsername());
+
+        return buildLoginResponse(jwtToken,refreshToken,userDetails.getUsername());
+    }
+
+    public LoginResponse setNewExpiryTimeForRefreshTokenAndBuildLoginResponse(User user,String refreshToken){
+
+        jwtUtils.setNewExpiryTime(user);
+        String jwtToken = jwtUtils.generateTokenFromUsername(user.getUserName());
+        return buildLoginResponse(jwtToken,refreshToken,user.getUserName());
+    }
 }
 
 //        List<Follow> followedUsers = u2.getFollowedUsers();
 //        List<Follow> followingUsers = u2.getFollowingUsers();
 //
-//        System.out.println("--------- user names of whom i am following -------------- ");
+//        logger.error("--------- user names of whom i am following -------------- ");
 //        for (Follow follow : followedUsers){
 //            User followedUser = follow.getFollowingUser();
-//            System.out.println(followedUser.getUserName());
+//            logger.error(followedUser.getUserName());
 //        }
 
-//        System.out.println("----------- my followers user name -----------------");
+//        logger.error("----------- my followers user name -----------------");
 //        for (Follow follow : followingUsers){
 //            User followingUser = follow.getFollowedUser();
-//            System.out.println(followingUser.getUserName());
+//            logger.error(followingUser.getUserName());
 //        }

@@ -1,5 +1,8 @@
 package com.tasks.socialMediaApp.responseModel;
 
+import org.springframework.stereotype.Component;
+
+@Component
 public class LoginResponse {
 
     String userName;
@@ -7,6 +10,12 @@ public class LoginResponse {
     String refreshToken;
 
     public LoginResponse() {
+    }
+
+    public LoginResponse(String jwtToken, String refreshToken, String userName) {
+        this.jwtToken = jwtToken;
+        this.refreshToken = refreshToken;
+        this.userName = userName;
     }
 
     public String getJwtToken() {

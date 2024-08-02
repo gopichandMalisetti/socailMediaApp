@@ -14,8 +14,6 @@ public class RefreshToken {
 
     String refreshToken;
     Date expiryTime;
-
-
     public Date getExpiryTime() {
         return expiryTime;
     }

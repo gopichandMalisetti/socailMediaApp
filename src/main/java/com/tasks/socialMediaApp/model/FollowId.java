@@ -10,10 +10,7 @@ import java.util.Objects;
 @Embeddable
 public class FollowId implements Serializable{
 
-    // me following someone
     User followedUser;
-
-    // someone following me
     User followingUser;
 
     public FollowId() {

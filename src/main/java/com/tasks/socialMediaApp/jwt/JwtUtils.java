@@ -11,6 +11,8 @@ import io.jsonwebtoken.UnsupportedJwtException;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
@@ -26,6 +28,8 @@ import java.util.UUID;
 
 @Component
 public class JwtUtils {
+
+    private static final Logger logger = LoggerFactory.getLogger(JwtUtils.class);
 
     @Value("${spring.app.secret}")
     private String jwtSecret;
@@ -46,7 +50,7 @@ public class JwtUtils {
     public String getJwtFromHeader(HttpServletRequest request){
 
         String bearerToken = request.getHeader("Authorization");
-        System.out.println("bearer Token: " + bearerToken);
+        logger.debug("bearer Token: " + bearerToken);
         if(bearerToken != null && bearerToken.startsWith("Bearer ")){
             return bearerToken.substring(7);
         }
@@ -84,17 +88,17 @@ public class JwtUtils {
                     .build()
                     .parseSignedClaims(token);
         }catch (MalformedJwtException exception){
-            System.out.println("Invalid JWT token: {}"+ exception.getMessage());
+            logger.error("Invalid JWT token: {}"+ exception.getMessage());
             throw exception;
         }
         catch (ExpiredJwtException exception){
-            System.out.println(" JWT token is expired: {}"+ exception.getMessage());
+            logger.error(" JWT token is expired: {}"+ exception.getMessage());
             throw exception;
         }catch (UnsupportedJwtException exception){
-            System.out.println("JWT token is unsupported: {}"+ exception.getMessage());
+            logger.error("JWT token is unsupported: {}"+ exception.getMessage());
             throw exception;
         }catch (IllegalArgumentException exception){
-            System.out.println("JWT claims string is empty: {}"+ exception.getMessage());
+            logger.error("JWT claims string is empty: {}"+ exception.getMessage());
             throw exception;
         }
    }

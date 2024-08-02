@@ -44,7 +44,6 @@ public class Follow implements Serializable {
         this.followingUser = followingUser;
     }
 
-
     @ManyToOne
     @MapsId("followedUser")
     @JoinColumn(name = "followedUserId")

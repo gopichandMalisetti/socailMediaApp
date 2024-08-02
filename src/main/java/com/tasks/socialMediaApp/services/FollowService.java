@@ -4,8 +4,12 @@ import com.tasks.socialMediaApp.model.Follow;
 import com.tasks.socialMediaApp.model.FollowId;
 import com.tasks.socialMediaApp.model.User;
 import com.tasks.socialMediaApp.repositories.FollowRepository;
+import com.tasks.socialMediaApp.responseModel.ResponseFollow;
 import org.antlr.v4.runtime.misc.Pair;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -14,47 +18,58 @@ import java.util.Optional;
 @Service
 public class FollowService {
 
+    private static final Logger logger = LoggerFactory.getLogger(FollowService.class);
     FollowRepository followRepository;
     UserService userService;
 
     @Autowired
-    FollowService(FollowRepository followRepository, UserService userService){
+    FollowService(FollowRepository followRepository,@Lazy UserService userService){
         this.followRepository = followRepository;
         this.userService = userService;
     }
 
-    public Pair<List<User>,Boolean> getAUserFollowers(User user){
+    public List<Follow> findFollowsByFollowedUser(User user){
+
+        return followRepository.findAllByFollowedUser(user);
+    }
+
+    public List<Follow> findFollowsByFollowingUser(User user){
+
+        return followRepository.findAllByFollowingUser(user);
+    }
+
+    public Pair<List<User>,Boolean> getUserFollowersWithFlag(User user){
 
         List<User> userFollowers;
         try{
             userFollowers = userService.findAUserFollowers(user);
         }catch (Exception e){
-            System.out.println(e.getMessage());
+           logger.error(e.getMessage());
             return new Pair<>(null,false);
         }
 
         return new Pair<>(userFollowers,true);
     }
 
-    public Pair<List<User>,Boolean> getusersIFollow(User user){
+    public Pair<List<User>,Boolean> getFollowedUsersWithFlag(User user){
 
         List<User> userFollowing;
         try{
             userFollowing = userService.findUsersIFollow(user);
         }catch (Exception e){
-            System.out.println(e.getMessage());
+           logger.error(e.getMessage());
             return new Pair<>(null,false);
         }
 
         return new Pair<>(userFollowing,true);
     }
 
-    public boolean checkBothUsersAreSame(int userId, int userToFollowId){
+    public boolean bothUsersAreSame(int userId, int userToFollowId){
 
         return userId == userToFollowId;
     }
 
-    public boolean checkUserAlreadyFollows(User user, User userToFollow){
+    public boolean isUserAlreadyFollowing(User user, User userToFollow){
 
         Optional<Follow> optionalFollow = null;
         FollowId followId = new FollowId(user, userToFollow);
@@ -79,4 +94,21 @@ public class FollowService {
 
         followRepository.deleteById(followId);
     }
+
+    public ResponseFollow buildResponseFollow(Follow followData, User user){
+
+        ResponseFollow responseFollow = new ResponseFollow();
+        responseFollow.setFollowedUserName(followData.getFollowingUser().getUserName());
+        responseFollow.setUserName(user.getUserName());
+        responseFollow.setFollowedTime(followData.getFollowedTime());
+
+        return responseFollow;
+    }
+
+    public void deleteFollowsByUser(User user){
+
+        followRepository.deleteByFollowingUser(user);
+        followRepository.deleteByFollowedUser(user);
+    }
+
 }

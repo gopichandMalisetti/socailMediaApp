@@ -9,7 +9,6 @@ import java.util.Objects;
 public class LikeId implements Serializable {
 
     User user;
-
     Post post;
 
     public LikeId() {

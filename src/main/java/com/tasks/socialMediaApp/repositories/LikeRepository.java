@@ -9,4 +9,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface LikeRepository extends JpaRepository<Like, LikeId> {
 
     Like findByUserAndPost(User user, Post post);
+
+    void deleteByUser(User user);
+
+    void deleteByPost(Post post);
 }

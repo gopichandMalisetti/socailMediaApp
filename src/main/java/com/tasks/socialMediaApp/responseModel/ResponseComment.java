@@ -2,9 +2,11 @@ package com.tasks.socialMediaApp.responseModel;
 
 import com.tasks.socialMediaApp.model.Post;
 import com.tasks.socialMediaApp.model.User;
+import org.springframework.stereotype.Component;
 
 import java.util.Date;
 
+@Component
 public class ResponseComment {
 
     Integer id;

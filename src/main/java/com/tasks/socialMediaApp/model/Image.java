@@ -8,7 +8,6 @@ import java.io.Serializable;
 @Table(name = "images")
 public class Image implements Serializable {
 
-
     int id;
     String url;
     Post post;
@@ -50,6 +49,5 @@ public class Image implements Serializable {
     public void setUrl(String url) {
         this.url = url;
     }
-
 
 }

@@ -1,5 +1,8 @@
 package com.tasks.socialMediaApp.responseModel;
 
+import org.springframework.stereotype.Component;
+
+@Component
 public class ResponseUser {
 
 

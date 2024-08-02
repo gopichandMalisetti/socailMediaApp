@@ -13,26 +13,17 @@ import org.springframework.stereotype.Service;
 @Service
 public class CustomUserDetailsService implements UserDetailsService {
 
-    @Autowired
-    UserRepository userRepository;
-
-    CustomUserDetailsService(){
-
-    }
     Logger logger = LoggerFactory.getLogger(CustomUserDetailsService.class);
 
-//    @Autowired
-//    CustomUserDetailsService(UserRepository userRepository){
-//        this.userRepository = userRepository;
-//    }
+    @Autowired
+    UserRepository userRepository;
+    CustomUserDetailsService(){
+    }
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
 
-
-        logger.warn("hello form loadUSerByUSerNAme");
-//        logger.debug("debug console");
-//        logger.info("info conole");
+        logger.debug("started executing loadUSerByUSerNAme");
         User user = userRepository.findByUserName(username)
                 .orElseThrow(() -> new UsernameNotFoundException("user not found"));
 

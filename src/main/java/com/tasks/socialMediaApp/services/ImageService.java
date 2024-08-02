@@ -3,6 +3,10 @@ package com.tasks.socialMediaApp.services;
 import com.tasks.socialMediaApp.model.Image;
 import com.tasks.socialMediaApp.model.Post;
 import com.tasks.socialMediaApp.repositories.ImageRepository;
+import com.tasks.socialMediaApp.requestModel.RequestImage;
+import com.tasks.socialMediaApp.responseModel.ResponseImage;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -13,6 +17,7 @@ import java.util.Optional;
 @Service
 public class ImageService {
 
+    private static final Logger logger = LoggerFactory.getLogger(LikeService.class);
     ImageRepository imageRepository;
 
     @Autowired
@@ -27,7 +32,7 @@ public class ImageService {
             image.setPost(post);
             savedEntity = imageRepository.save(image);
         }catch (Exception e){
-            System.out.println(e.getMessage());
+           logger.error(e.getMessage());
             return null;
         }
 
@@ -41,7 +46,7 @@ public class ImageService {
         return optionalImage.orElse(null);
     }
 
-    public Image findImageByPostId(int imageId, Post post){
+    public Image findImageByPost(int imageId, Post post){
 
         return imageRepository.findByPostAndId(post,imageId);
     }
@@ -51,7 +56,7 @@ public class ImageService {
         try {
             imageRepository.delete(image);
         }catch (Exception e){
-            System.out.println(e.getMessage());
+           logger.error(e.getMessage());
             return false;
         }
 
@@ -62,23 +67,49 @@ public class ImageService {
 
         List<Image> allImages = null;
         try {
-            allImages = post.getImages();
+            allImages = imageRepository.findAllByPost(post);
         }catch (Exception e){
-            System.out.println(e.getMessage());
+           logger.error(e.getMessage());
             return null;
         }
 
         return allImages;
     }
 
-    public List<Image> saveImages(List<Image> images,Post post){
+    public void saveImages(List<RequestImage> requestImages, Post post){
 
-        List<Image> savedImages = new ArrayList<>();
-        for (Image image : images){
-            image.setPost(post);
-            savedImages.add(imageRepository.save(image));
-        }
+        requestImages.stream()
+                .map(requestImage -> {
+                    Image imageToSave = new Image();
+                    imageToSave.setPost(post);
+                    imageToSave.setUrl(requestImage.getUrl());
+                    return imageToSave;
+                })
+                .forEach(imageRepository::save);
 
-        return savedImages;
+    }
+
+    public ResponseImage buildResponseImage(Image savedImage){
+
+        ResponseImage responseImage = new ResponseImage();
+        responseImage.setId(savedImage.getId());
+        responseImage.setUrl(savedImage.getUrl());
+
+        return responseImage;
+    }
+
+    public List<ResponseImage> buildResponseImageList(List<Image> allImages){
+        List<ResponseImage> allResponseImages = new ArrayList<>();
+
+        allImages.stream()
+                .map(this::buildResponseImage)
+                .forEach(allResponseImages::add);
+
+        return allResponseImages;
+    }
+
+    public void deleteImagesOfAPost(Post post){
+
+        imageRepository.deleteByPost(post);
     }
 }

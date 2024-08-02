@@ -80,6 +80,4 @@ public class Comment implements Serializable {
         return description;
     }
 
-
-
 }
