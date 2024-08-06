@@ -1,5 +1,8 @@
 package com.tasks.socialMediaApp.services;
 
+import com.tasks.socialMediaApp.Exceptions.ActionDoneBeforeException;
+import com.tasks.socialMediaApp.Exceptions.InternalServerException;
+import com.tasks.socialMediaApp.Exceptions.NotFoundException;
 import com.tasks.socialMediaApp.model.Like;
 import com.tasks.socialMediaApp.model.LikeId;
 import com.tasks.socialMediaApp.model.Post;
@@ -9,7 +12,10 @@ import com.tasks.socialMediaApp.repositories.PostRepository;
 import com.tasks.socialMediaApp.responseModel.ResponseLike;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
+
+import java.util.Optional;
 
 @Service
 public class LikeService {
@@ -17,10 +23,38 @@ public class LikeService {
     private static final Logger logger = LoggerFactory.getLogger(LikeService.class);
     LikeRepository likeRepository;
     PostRepository postRepository;
+    PostService postService;
 
-    LikeService(LikeRepository likeRepository, PostRepository postRepository) {
+    LikeService(LikeRepository likeRepository, PostRepository postRepository,@Lazy PostService postService) {
         this.likeRepository = likeRepository;
         this.postRepository = postRepository;
+        this.postService = postService;
+    }
+
+    public ResponseLike handleAddLikeToAPost(User user, int postId, Like like){
+
+        Optional<Post> optionalPost = postService.findPost(postId);
+        if (optionalPost.isEmpty()) throw new NotFoundException("post not found!");
+
+        Post post = optionalPost.get();
+        if (userLikedThePost(user, post)) throw new ActionDoneBeforeException("you have already liked the post!");
+        Like savedLike = addLikeToPost(like,user,post);
+
+        if(savedLike == null){
+            throw new InternalServerException("internal server problem");
+        }
+        return buildResponseLike(savedLike);
+    }
+
+    public void handleUnlikeAPost(User user,int postId){
+
+        Optional<Post> optionalPost = postService.findPost(postId);
+        if(optionalPost.isEmpty()) throw new NotFoundException("post not found!");
+        Post post = optionalPost.get();
+
+        if(!userLikedThePost(user,post)) throw new ActionDoneBeforeException("you have not liked the post!");
+        if(!unLikeThePost(user,post)) throw new InternalServerException("internal server problem");
+
     }
 
     public Like addLikeToPost(Like like, User user, Post post){

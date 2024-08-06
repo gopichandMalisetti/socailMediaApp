@@ -1,15 +1,21 @@
 package com.tasks.socialMediaApp.services;
 
+import com.tasks.socialMediaApp.Exceptions.AccessException;
+import com.tasks.socialMediaApp.Exceptions.InternalServerException;
+import com.tasks.socialMediaApp.Exceptions.NotFoundException;
 import com.tasks.socialMediaApp.model.Follow;
 import com.tasks.socialMediaApp.model.FollowId;
 import com.tasks.socialMediaApp.model.User;
 import com.tasks.socialMediaApp.repositories.FollowRepository;
 import com.tasks.socialMediaApp.responseModel.ResponseFollow;
+import com.tasks.socialMediaApp.responseModel.ResponseUser;
 import org.antlr.v4.runtime.misc.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -111,4 +117,71 @@ public class FollowService {
         followRepository.deleteByFollowedUser(user);
     }
 
+    public List<ResponseUser> fetchFollowers(User user){
+
+        Pair<List<User>,Boolean> followersWithFlag = getUserFollowersWithFlag(user);
+        if(!followersWithFlag.b) throw new InternalServerException("internal server problem");
+
+        List<User> userFollowers = followersWithFlag.a;
+        return userService.buildResponseUserList(userFollowers);
+    }
+
+    public List<ResponseUser> fetchFollowing(User user){
+
+        Pair<List<User>,Boolean> followedUsersWithFlag = getFollowedUsersWithFlag(user);
+        if(!followedUsersWithFlag.b) throw new InternalServerException("internal server problem");
+
+        List<User> followedUsers = followedUsersWithFlag.a;
+        return userService.buildResponseUserList(followedUsers);
+    }
+
+    public ResponseFollow handleAddFollow(int targetUserId, Follow follow, User user){
+        User userToFollow = userService.findUser(targetUserId);
+        if ( userToFollow == null) {
+            throw new NotFoundException("user to follow not found");
+        }
+
+        if(bothUsersAreSame(user.getId(),targetUserId)) throw new AccessException("you can't follow yourself");
+
+        boolean userAlreadyFollowing;
+        try {
+            userAlreadyFollowing = isUserAlreadyFollowing(user,userToFollow);
+        }catch (Exception e){
+            System.out.println(e.getMessage());
+            throw new InternalServerException("internal server problem");
+        }
+
+        if(userAlreadyFollowing) throw new AccessException("you have already following the user");
+        Follow savedFollow = null;
+        try {
+            savedFollow = addFollow(user,userToFollow,follow);
+        }catch (Exception e){
+            logger.error(e.getMessage());
+            throw new InternalServerException("internal server problem");
+        }
+        return buildResponseFollow(savedFollow,user);
+    }
+
+    public void handleUnFollowingAUser(User user, int followedUserId){
+
+        User followedUser = userService.findUser(followedUserId);
+        if ( followedUser == null) {
+            throw new NotFoundException("user you're following not found");
+        }
+        boolean userAlreadyFollowing;
+        try {
+            userAlreadyFollowing = isUserAlreadyFollowing(user,followedUser);
+        }catch (Exception e){
+            logger.error(e.getMessage());
+            throw new InternalServerException("internal server problem");
+        }
+
+        if(!userAlreadyFollowing) throw new AccessException("you are not following the user to unfollow");
+        try {
+            unFollow(user, followedUser);
+        }catch (Exception e){
+            logger.error(e.getMessage());
+            throw new InternalServerException("internal server problem");
+        }
+    }
 }

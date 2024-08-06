@@ -28,43 +28,27 @@ public class CommentsController {
 
     private static final Logger logger = LoggerFactory.getLogger(CommentsController.class);
     UserService userService;
-    PostService postService;
     CommentService commentService;
 
-    CommentsController( UserService userService,PostService postService,CommentService commentService){
+    CommentsController( UserService userService,CommentService commentService){
         this.userService = userService;
-        this.postService = postService;
         this.commentService = commentService;
     }
 
     @PostMapping("/addComment/{postId}")
-    private ResponseEntity<?> addComment(@PathVariable int postId, @AuthenticationPrincipal UserDetails userDetails, @RequestBody Comment comment){
+    private ResponseEntity<?> addComment(@PathVariable int postId, @AuthenticationPrincipal UserDetails userDetails,
+                                         @RequestBody Comment comment){
 
         User user = userService.findUserByUserName(userDetails.getUsername());
         logger.debug("user name " + userDetails.getUsername());
-        Optional<Post> optionalPost = postService.findPost(postId);
-        if (optionalPost.isEmpty()) return ResponseEntity.status(HttpStatus.NOT_FOUND).body("post not found");
-
-        Post post = optionalPost.get();
-        Comment savedComment = commentService.addComment(comment,user,post);
-        if(savedComment == null) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body("internal server problem! please try again after sometime");
-        ResponseComment responseComment = commentService.convertToResponseComment(savedComment);
+        ResponseComment responseComment = commentService.handleAddComment(postId,comment,user);
         return ResponseEntity.ok(responseComment);
-
     }
 
     @GetMapping("/getCommentsOfAPost/{postId}")
     private ResponseEntity<?> getCommentsOfAPost(@PathVariable int postId){
 
-        Optional<Post> optionalPost = postService.findPost(postId);
-        if (optionalPost.isEmpty()) return ResponseEntity.status(HttpStatus.NOT_FOUND).body("post not found");
-        Post post = optionalPost.get();
-        List<Comment> allComments = commentService.getAllCommentsOfAPost(post);
-
-        if (allComments == null) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body("internal server problem! please try again after sometime");
-        List<ResponseComment> allResponseComments = commentService.buildResponseCommentList(allComments);
+        List<ResponseComment> allResponseComments = commentService.handleGetAllCommentsOfAPost(postId);
         return ResponseEntity.ok(allResponseComments);
     }
 
@@ -72,24 +56,15 @@ public class CommentsController {
     private ResponseEntity<?> deleteComment(@PathVariable int commentId,@AuthenticationPrincipal UserDetails userDetails){
 
         User user = userService.findUserByUserName(userDetails.getUsername());
-        Comment comment = commentService.findComment(commentId);
-        if(comment == null) return ResponseEntity.status(HttpStatus.NOT_FOUND).body("comment not found");
-        if(!Objects.equals(comment.getUser().getId(), user.getId())) return ResponseEntity.ok("u can't delete the comment because u not created it");
-
-        if(commentService.deleteComment(comment)) return ResponseEntity.ok("comment deleted successfully");
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body("internal server problem! please try again after sometime");
+        commentService.handleDeleteAComment(user,commentId);
+        return ResponseEntity.ok("successfully deleted comment!");
     }
 
     @PutMapping("/editComment")
     private ResponseEntity<?> editComment(@AuthenticationPrincipal UserDetails userDetails, @RequestBody Comment editComment){
-        User user = userService.findUserByUserName(userDetails.getUsername());
-        Comment comment = commentService.findComment(editComment.getId());
-        if(comment == null) return ResponseEntity.status(HttpStatus.NOT_FOUND).body("comment not found");
 
-        if(!Objects.equals(comment.getUser().getId(), user.getId())) return ResponseEntity.ok("u can't edit the comment because u not created it");
-        if(commentService.editComment(editComment)) return ResponseEntity.ok("successfully edited comment");
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body("internal server problem! please try again after sometime");
+        User user = userService.findUserByUserName(userDetails.getUsername());
+        commentService.handleEditComment(user,editComment);
+        return ResponseEntity.ok("successfully edited comment");
     }
 }

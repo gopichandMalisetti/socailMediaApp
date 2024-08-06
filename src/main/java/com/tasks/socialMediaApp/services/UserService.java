@@ -1,11 +1,15 @@
 package com.tasks.socialMediaApp.services;
 
+import com.tasks.socialMediaApp.Exceptions.InternalServerException;
+import com.tasks.socialMediaApp.Exceptions.NotFoundException;
+import com.tasks.socialMediaApp.Exceptions.UnauthorizedException;
 import com.tasks.socialMediaApp.jwt.JwtUtils;
 import com.tasks.socialMediaApp.model.Follow;
 import com.tasks.socialMediaApp.model.RefreshToken;
 import com.tasks.socialMediaApp.model.User;
 import com.tasks.socialMediaApp.repositories.UserRepository;
 import com.tasks.socialMediaApp.requestModel.LoginRequest;
+import com.tasks.socialMediaApp.requestModel.RefreshTokenRequest;
 import com.tasks.socialMediaApp.responseModel.LoginResponse;
 import com.tasks.socialMediaApp.responseModel.ResponseUser;
 import com.tasks.socialMediaApp.responseModel.ResponseUserDetails;
@@ -14,9 +18,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -45,8 +53,8 @@ public class UserService {
 
     @Autowired
     UserService(UserRepository userRepository, PasswordEncoder passwordEncoder,
-                   JwtUtils jwtUtils, AuthenticationManager authenticationManager,FollowService followService,
-                PostService postService,LikeService likeService,CommentService commentService){
+                JwtUtils jwtUtils, AuthenticationManager authenticationManager, FollowService followService,
+                @Lazy PostService postService, LikeService likeService, CommentService commentService){
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtils = jwtUtils;
@@ -83,6 +91,70 @@ public class UserService {
         boolean matches =  matcher.matches();
         logger.debug("matches " + matches);
         return matches;
+    }
+
+    public ResponseEntity<?> addUser(User user){
+
+        User createdUser = findUserByUserName(user.getUserName());
+        if(createdUser != null) return ResponseEntity.ok("username already exists");
+        if(!validatePassword(user.getPassword()))
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("please enter strong password");
+
+        User savedUser = userRegistration(user);
+        if(savedUser == null){
+            throw new InternalServerException("internal server problem");
+        }
+        return ResponseEntity.status(HttpStatus.CREATED).body(savedUser);
+    }
+
+    public void handleDeleteUser(String userName) {
+
+        User savedUser = findUserByUserName(userName);
+        if (!deleteUser(savedUser)) {
+            throw new NotFoundException("user not found");
+        }
+    }
+
+    public List<ResponseUserDetails> findUsers(String userName){
+
+        List<User> users = null;
+        try {
+            users = searchUser(userName);
+        }catch (Exception e){
+            logger.debug(e.getMessage());
+            throw new NotFoundException("user with this username not found");
+        }
+
+       return buildResponseUserDetails(users);
+    }
+
+    public LoginResponse login(LoginRequest loginRequest){
+        logger.debug("userLogin process started:");
+        LoginResponse loginResponse;
+        try{
+            loginResponse = validateUserLoginAndBuildLoginResponse(loginRequest);
+        }catch (AuthenticationException authenticationException){
+            throw new NotFoundException("bad credentials");
+        }
+        return loginResponse;
+    }
+
+    public LoginResponse createAccessTokenWithRefreshToken(RefreshTokenRequest refreshTokenRequest){
+
+        String refreshToken = refreshTokenRequest.getRefreshToken();
+        logger.debug(" refresh token " + refreshToken);
+        User user = null;
+        try {
+            user = findByRefreshToken(refreshToken);
+        }catch (Exception e){
+            System.out.println("Exception : " + e.getMessage());
+            throw new InternalServerException("internal server problem");
+        }
+
+        if(user == null) throw new NotFoundException("user not found");
+        if(jwtUtils.checkExpiryOfRefreshToken(user)) throw new UnauthorizedException("refresh token expired, please login again");
+
+        return setNewExpiryTimeForRefreshTokenAndBuildLoginResponse(user,refreshToken);
     }
 
     public User userRegistration(User user){

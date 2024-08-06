@@ -1,7 +1,9 @@
 package com.tasks.socialMediaApp.services;
 
+import ch.qos.logback.classic.spi.IThrowableProxy;
+import com.tasks.socialMediaApp.Exceptions.InternalServerException;
+import com.tasks.socialMediaApp.Exceptions.NotFoundException;
 import com.tasks.socialMediaApp.model.Image;
-import com.tasks.socialMediaApp.model.Like;
 import com.tasks.socialMediaApp.model.Post;
 import com.tasks.socialMediaApp.model.User;
 import com.tasks.socialMediaApp.repositories.PostRepository;
@@ -13,9 +15,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -31,13 +34,90 @@ public class PostService {
     LikeService likeService;
 
     @Autowired
-    PostService(PostRepository postRepository,@Lazy UserService userService, ImageService imageService,
-                CommentService commentService, LikeService likeService){
+    PostService(PostRepository postRepository,@Lazy UserService userService,@Lazy ImageService imageService,
+                @Lazy CommentService commentService,@Lazy LikeService likeService){
         this.postRepository = postRepository;
         this.userService = userService;
         this.imageService = imageService;
         this.commentService = commentService;
         this.likeService = likeService;
+    }
+
+    public ResponsePost handleAddPost(RequestPost requestPost, User user){
+
+        Post savedPost = addPost(requestPost,user);
+        if( savedPost == null){
+             throw new InternalServerException("internal server problem");
+        }
+        return buildResponsePost(savedPost);
+
+    }
+
+    public ResponsePost handleGetAPostOfAUser(User user, int postId){
+
+        Optional<Post> optionalPost;
+        try {
+            optionalPost = findPostOfAUser(postId,user.getId());
+        }catch (Exception e){
+            logger.error(e.getMessage());
+            throw new InternalServerException("internal server problem");
+        }
+
+        if(optionalPost.isEmpty()) throw new NotFoundException("post not found");
+        Post post = optionalPost.get();
+        return buildResponsePost(post);
+    }
+
+    public void handleDeleteAPost(User user, int postId){
+
+        Optional<Post> optionalPost;
+        try {
+            optionalPost = findPostOfAUser(postId,user.getId());
+        }catch (Exception e){
+            logger.error(e.getMessage());
+            throw new InternalServerException("internal server problem");
+        }
+
+        if(optionalPost.isEmpty()) throw new NotFoundException("post not found");
+
+        try {
+            deletePost(optionalPost.get());
+        }catch (Exception e){
+            throw new InternalServerException("internal server problem");
+        }
+
+    }
+
+    public void handleEditPost(User user, Post post){
+
+        Optional<Post> optionalPost;
+        try {
+            optionalPost = findPostOfAUser(post.getId(), user.getId());
+        }catch (Exception e){
+            logger.error(e.getMessage());
+            throw new InternalServerException("internal server problem");
+        }
+
+        if(optionalPost.isEmpty()) throw new NotFoundException("post not found");
+        if(!editPost(post)){
+            throw new InternalServerException("internal server problem");
+        }
+    }
+
+    public List<ResponsePost> fetchAllPosts(){
+        List<Post> allPosts = getAllPosts();
+        return buildResponsePostList(allPosts);
+    }
+
+    public List<ResponsePost> fetchAllPostsFromUserFollows(User user){
+
+        List<List<Post>> allPosts =  getPostsFromUserIFollow(user);
+        return buildResponsePostListFromNestedPostList(allPosts);
+    }
+
+    public List<ResponsePost> fetchPostsOfAUser(User user){
+        List<Post> allPosts = getPostsOfAUser(user);
+        return buildResponsePostList(allPosts);
     }
 
     @Transactional
@@ -67,21 +147,9 @@ public class PostService {
         return Optional.ofNullable(postRepository.findByIdAndUser_Id(id, userId));
     }
 
-//    public boolean deletePost(int postId){
-//
-//         try{
-//             postRepository.deleteById(postId);
-//         }catch (Exception e){
-//            logger.error(e.getMessage());
-//             return false;
-//         }
-//         return true;
-//    }
-
     public boolean isPostOwnedByUser(int postId, int userId){
 
         Post post = postRepository.findByIdAndUser_Id(postId,userId);
-
         return post == null;
     }
 

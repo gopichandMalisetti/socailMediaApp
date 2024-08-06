@@ -1,7 +1,8 @@
 package com.tasks.socialMediaApp.services;
 
-import ch.qos.logback.core.encoder.EchoEncoder;
-import com.tasks.socialMediaApp.controllers.CommentsController;
+import com.tasks.socialMediaApp.Exceptions.AccessException;
+import com.tasks.socialMediaApp.Exceptions.InternalServerException;
+import com.tasks.socialMediaApp.Exceptions.NotFoundException;
 import com.tasks.socialMediaApp.model.Comment;
 import com.tasks.socialMediaApp.model.Post;
 import com.tasks.socialMediaApp.model.User;
@@ -9,10 +10,13 @@ import com.tasks.socialMediaApp.repositories.CommentRepository;
 import com.tasks.socialMediaApp.responseModel.ResponseComment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -21,9 +25,11 @@ public class CommentService {
     
     private static final Logger logger = LoggerFactory.getLogger(CommentService.class);
     CommentRepository commentRepository;
+    PostService postService;
 
-    CommentService(CommentRepository commentRepository){
+    CommentService(CommentRepository commentRepository,@Lazy PostService postService){
         this.commentRepository = commentRepository;
+        this.postService = postService;
     }
 
     public Comment addComment(Comment comment, User user, Post post){
@@ -41,6 +47,47 @@ public class CommentService {
 
         return savedComment;
 
+    }
+
+    public ResponseComment handleAddComment(int postId,Comment comment,User user){
+
+        Optional<Post> optionalPost = postService.findPost(postId);
+        if (optionalPost.isEmpty()) throw new NotFoundException("post not Found!");
+
+        Post post = optionalPost.get();
+        Comment savedComment = addComment(comment,user,post);
+        if(savedComment == null) throw new InternalServerException("internal server problem! please try again after sometime");
+        return convertToResponseComment(savedComment);
+
+    }
+
+    public List<ResponseComment> handleGetAllCommentsOfAPost(int postId){
+
+        Optional<Post> optionalPost = postService.findPost(postId);
+        if (optionalPost.isEmpty()) throw new NotFoundException("post not Found!");
+        Post post = optionalPost.get();
+
+        List<Comment> allComments = getAllCommentsOfAPost(post);
+        if (allComments == null) throw new InternalServerException("internal server problem! please try again after sometime");
+        return buildResponseCommentList(allComments);
+    }
+
+    public void handleDeleteAComment(User user,int commentId){
+
+        Comment comment = findComment(commentId);
+        if(comment == null) throw new NotFoundException("comment not found");
+        if(!Objects.equals(comment.getUser().getId(), user.getId())) throw new AccessException("you can't access these comment");
+
+        if(!deleteComment(comment)) throw new InternalServerException("internal server problem! please try again after sometime");
+    }
+
+    public void handleEditComment(User user, Comment editComment){
+
+        Comment comment = findComment(editComment.getId());
+        if(comment == null) throw new NotFoundException("comment not found");
+
+        if(!Objects.equals(comment.getUser().getId(), user.getId())) throw new AccessException("you can't access these comment");
+        if(!editComment(editComment)) throw new InternalServerException("internal server problem! please try again after sometime");
     }
 
     public List<Comment> getAllCommentsOfAPost(Post post){
@@ -92,6 +139,7 @@ public class CommentService {
 
         commentRepository.deleteAllByPost(post);
     }
+
     public boolean editComment(Comment comment){
 
         try {

@@ -8,6 +8,7 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.parameters.P;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
@@ -27,10 +28,7 @@ public class ProfileController {
     private ResponseEntity<?> editProfile(@AuthenticationPrincipal UserDetails userDetails, @RequestBody Profile profile){
 
         User user = userService.findUserByUserName(userDetails.getUsername());
-        Profile savedProfile = profileService.editProfile(user,profile);
-        if(savedProfile == null) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body("internal server problem! please try again after sometime");
-
+        Profile savedProfile = profileService.handleEditProfile(user,profile);
         return ResponseEntity.ok(savedProfile);
     }
 
@@ -38,14 +36,7 @@ public class ProfileController {
     private ResponseEntity<?> getProfile(@AuthenticationPrincipal UserDetails userDetails){
 
         User user = userService.findUserByUserName(userDetails.getUsername());
-        Profile profile = null;
-        try {
-            profile = profileService.getProfile(user);
-        }catch (Exception e){
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("internal server problem! please try again after sometime");
-        }
-
+        Profile profile = profileService.fetchProfile(user);
         return ResponseEntity.ok(profile);
     }
 }

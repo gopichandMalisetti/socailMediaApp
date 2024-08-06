@@ -9,7 +9,6 @@ import com.tasks.socialMediaApp.services.UserService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -38,35 +37,15 @@ public class PostsController {
       private ResponseEntity<?> addPost(@AuthenticationPrincipal UserDetails userDetails, @RequestBody RequestPost requestPost){
 
           User user = userService.findUserByUserName(userDetails.getUsername());
-          logger.debug(userDetails.getUsername());
-          Post savedPost = postService.addPost(requestPost,user);
-
-          if( savedPost != null){
-              ResponsePost responsePost = postService.buildResponsePost(savedPost);
-              return ResponseEntity.status(HttpStatus.CREATED).body(responsePost);
-          }
-          return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                  .body("internal server problem! please try again after sometime");
+          ResponsePost responsePost = postService.handleAddPost(requestPost,user);
+          return ResponseEntity.status(HttpStatus.CREATED).body(responsePost);
       }
 
       @GetMapping("/getPostOfAUser/{postId}")
       private ResponseEntity<?> getPostOfAUser(@AuthenticationPrincipal UserDetails userDetails,@PathVariable int postId){
 
           User user = userService.findUserByUserName(userDetails.getUsername());
-          System.out.println(userDetails.getUsername());
-          Optional<Post> optionalPost;
-          try {
-              optionalPost = postService.findPostOfAUser(postId,user.getId());
-          }catch (Exception e){
-              logger.error(e.getMessage());
-              return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                      .body("internal server problem! please try again after sometime");
-          }
-
-          if(optionalPost.isEmpty()) return ResponseEntity.status(HttpStatus.NOT_FOUND).body("post not found for these user! please enter valid post id");
-          Post post = optionalPost.get();
-          ResponsePost responsePost = postService.buildResponsePost(post);
-
+          ResponsePost responsePost = postService.handleGetAPostOfAUser(user,postId);
           return ResponseEntity.ok(responsePost);
 
       }
@@ -75,64 +54,30 @@ public class PostsController {
       private ResponseEntity<String> deletePost(@PathVariable int postId,@AuthenticationPrincipal UserDetails userDetails){
 
           User user = userService.findUserByUserName(userDetails.getUsername());
-          Optional<Post> optionalPost;
-          try {
-              optionalPost = postService.findPostOfAUser(postId,user.getId());
-          }catch (Exception e){
-              logger.error(e.getMessage());
-              return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                      .body("internal server problem! please try again after sometime");
-          }
-
-          if(optionalPost.isEmpty()) return ResponseEntity.status(HttpStatus.NOT_FOUND).body("The user has no post with this post ID! please enter valid post id");
-          try {
-              postService.deletePost(optionalPost.get());
-              return ResponseEntity.status(HttpStatus.OK).body("successfully deleted");
-          }catch (Exception exception){
-              logger.error(exception.getMessage());
-          }
-
-          return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                  .body("internal server problem! please try again after sometime");
-
+          postService.handleDeleteAPost(user, postId);
+          return ResponseEntity.ok("successfully deleted the post");
       }
 
       @PutMapping("/editPost")
       private ResponseEntity<String> editPost(@AuthenticationPrincipal UserDetails userDetails, @RequestBody Post post){
 
           User user = userService.findUserByUserName(userDetails.getUsername());
-
-          Optional<Post> optionalPost;
-          try {
-              optionalPost = postService.findPostOfAUser(post.getId(), user.getId());
-          }catch (Exception e){
-              logger.error(e.getMessage());
-              return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                      .body("internal server problem! please try again after sometime");
-          }
-
-          if(optionalPost.isEmpty()) return ResponseEntity.status(HttpStatus.NOT_FOUND).body("post not found! please enter valid post id");
-          if(postService.editPost(post)){
-              return ResponseEntity.ok("edit was successful");
-          }
-          return ResponseEntity.ok("edit was unsucessful");
+          postService.handleEditPost(user, post);
+          return ResponseEntity.ok("edit was successful");
       }
 
       @GetMapping("/getPostsFromAllUsers")
       private ResponseEntity<List<ResponsePost>> getPostsFromAllUsers(){
 
-          List<Post> allPosts =   postService.getAllPosts();
-          List<ResponsePost> responsePosts = postService.buildResponsePostList(allPosts);
+          List<ResponsePost> responsePosts = postService.fetchAllPosts();
           return ResponseEntity.ok(responsePosts);
       }
 
       @GetMapping("/getPostFromUsersIFollow")
-      private ResponseEntity<?> getPostFromUsersIFollow(@AuthenticationPrincipal UserDetails userDetails){
+      private ResponseEntity<?> getPostFromUserFollows(@AuthenticationPrincipal UserDetails userDetails){
 
           User user = userService.findUserByUserName(userDetails.getUsername());
-          System.out.println(userDetails.getUsername());
-          List<List<Post>> allPosts =  postService.getPostsFromUserIFollow(user);
-          List<ResponsePost> responsePosts = postService.buildResponsePostListFromNestedPostList(allPosts);
+          List<ResponsePost> responsePosts = postService.fetchAllPostsFromUserFollows(user);
           return ResponseEntity.ok(responsePosts);
       }
 
@@ -140,8 +85,7 @@ public class PostsController {
     private  ResponseEntity<?> getPostsOfAUser(@AuthenticationPrincipal UserDetails userDetails){
 
           User user = userService.findUserByUserName(userDetails.getUsername());
-          List<Post> allPosts = postService.getPostsOfAUser(user);
-          List<ResponsePost> responsePosts = postService.buildResponsePostList(allPosts);
+          List<ResponsePost> responsePosts = postService.fetchPostsOfAUser(user);
           return ResponseEntity.ok(responsePosts);
       }
 

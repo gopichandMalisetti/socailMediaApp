@@ -31,22 +31,12 @@ public class LikesController {
     }
 
     @PostMapping("/addLike/{postId}")
-    private ResponseEntity<?> addLike(@PathVariable int postId, @AuthenticationPrincipal UserDetails userDetails, @RequestBody Like like){
+    private ResponseEntity<?> addLike(@PathVariable int postId, @AuthenticationPrincipal UserDetails userDetails,
+                                      @RequestBody Like like){
 
         User user = userService.findUserByUserName(userDetails.getUsername());
-        Optional<Post> optionalPost = postService.findPost(postId);
-        if (optionalPost.isEmpty()) return ResponseEntity.status(HttpStatus.NOT_FOUND).body("post not found! please enter valid postId");
-
-        Post post = optionalPost.get();
-        if (likeService.userLikedThePost(user, post)) return ResponseEntity.ok("you have already liked the post");
-        Like savedLike = likeService.addLikeToPost(like,user,post);
-
-        if(savedLike != null){
-            ResponseLike responseLike = likeService.buildResponseLike(savedLike);
-           return ResponseEntity.ok(responseLike);
-        }
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body("internal server problem! please try again after sometime");
+        ResponseLike responseLike = likeService.handleAddLikeToAPost(user,postId,like);
+        return ResponseEntity.ok(responseLike);
     }
 
 
@@ -54,17 +44,8 @@ public class LikesController {
     private ResponseEntity<?> unlike(@PathVariable int postId,@AuthenticationPrincipal UserDetails userDetails){
 
         User user = userService.findUserByUserName(userDetails.getUsername());
-        System.out.println(userDetails.getUsername());
-
-        Optional<Post> optionalPost = postService.findPost(postId);
-        if(optionalPost.isEmpty()) return ResponseEntity.status(HttpStatus.NOT_FOUND).body("post not found! please enter valid postId");
-        Post post = optionalPost.get();
-
-        if(!likeService.userLikedThePost(user,post)) return ResponseEntity.ok("you have not liked the post to unlike it");
-        if(likeService.unLikeThePost(user,post)) return ResponseEntity.ok("unliked the post");
-
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body("internal server problem! please try again after sometime");
+        likeService.handleUnlikeAPost(user,postId);
+        return ResponseEntity.ok("successfully unliked the post!");
     }
 
 }
